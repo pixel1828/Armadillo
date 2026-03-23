@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8">
   <title>Armadillo Store</title>
   <script src="https://unpkg.com/@ruffle-rs/ruffle"></script>
   <style>
@@ -30,6 +29,8 @@
       padding: 10px;
     }
 
+    .sidebar div { margin: 10px 0; cursor: pointer; }
+
     .main {
       flex: 1;
       padding: 10px;
@@ -42,16 +43,13 @@
       margin: 5px 0;
       padding: 10px;
       display: flex;
-      align-items: center;
       justify-content: space-between;
-    }
-
-    .game img { width: 32px; height: 32px; margin-right: 10px; }
-
-    .left {
-      display: flex;
       align-items: center;
     }
+
+    .left { display: flex; align-items: center; }
+
+    .left img { width: 32px; height: 32px; margin-right: 10px; }
 
     .buttons button { margin-left: 5px; }
 
@@ -77,21 +75,28 @@
 <div class="topbar">
   Armadillo Store
   <button onclick="openModal()">New installation</button>
+  <button>Remove installation</button>
+  <button>Reconfigure installation</button>
 </div>
 
 <div class="container">
+
   <div class="sidebar">
     <div>Home</div>
     <div>========</div>
     <div>Adobe Flash</div>
+    <div>========</div>
+    <div>MPK (Tikm)</div>
   </div>
 
   <div class="main">
     <h2>My games</h2>
     <div id="games"></div>
   </div>
+
 </div>
 
+<!-- Modal -->
 <div class="modal" id="modal">
   <div class="modal-content">
     <h3>Add Game</h3>
@@ -141,13 +146,11 @@ async function addGame() {
     return;
   }
 
-  let swfType, swfData;
+  let swfData;
 
   if (swfFile) {
-    swfType = "base64";
     swfData = await fileToBase64(swfFile);
   } else {
-    swfType = "url";
     swfData = swfURL;
   }
 
@@ -155,7 +158,7 @@ async function addGame() {
 
   const games = JSON.parse(localStorage.getItem("flashGames") || "[]");
 
-  games.push({ name, swfType, swfData, icon });
+  games.push({ name, swfData, icon });
 
   localStorage.setItem("flashGames", JSON.stringify(games));
 
@@ -169,30 +172,24 @@ function playGame(index) {
 
   const win = window.open("", "_blank");
 
-  win.document.write(`
-<!DOCTYPE html>
+  win.document.write(`<!DOCTYPE html>
 <html>
 <head>
-  <title>${game.name}</title>
-  <link rel="icon" href="${game.icon}">
-  <script src="https://unpkg.com/@ruffle-rs/ruffle"></script>
-  <style>
-    body { margin:0; background:black; }
-    #player { width:100vw; height:100vh; }
-  </style>
+<title>${game.name}</title>
+<link rel="icon" href="${game.icon}">
+<script src="https://unpkg.com/@ruffle-rs/ruffle"></script>
+<style>body{margin:0;background:black;}#player{width:100vw;height:100vh;}</style>
 </head>
 <body>
-  <div id="player"></div>
-  <script>
-    window.RufflePlayer = window.RufflePlayer || {};
-    const ruffle = window.RufflePlayer.newest();
-    const player = ruffle.createPlayer();
-    document.getElementById("player").appendChild(player);
-    player.load("${game.swfData}");
-  <\/script>
+<div id="player"></div>
+<script>
+const ruffle = window.RufflePlayer.newest();
+const player = ruffle.createPlayer();
+document.getElementById("player").appendChild(player);
+player.load("${game.swfData}");
+<\/script>
 </body>
-</html>
-  `);
+</html>`);
 }
 
 function deleteGame(index) {
