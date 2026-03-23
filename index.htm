@@ -1,7 +1,9 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="utf-8">
   <title>Armadillo Store</title>
+  <script src="https://unpkg.com/@ruffle-rs/ruffle"></script>
   <style>
     body {
       margin: 0;
@@ -11,24 +13,16 @@
       height: 100vh;
     }
 
-    /* Top bar */
     .topbar {
       background: #222;
       color: white;
       padding: 10px;
     }
 
-    .topbar button {
-      margin-left: 10px;
-    }
+    .topbar button { margin-left: 10px; }
 
-    /* Main layout */
-    .container {
-      display: flex;
-      flex: 1;
-    }
+    .container { display: flex; flex: 1; }
 
-    /* Sidebar */
     .sidebar {
       width: 200px;
       background: #333;
@@ -36,81 +30,205 @@
       padding: 10px;
     }
 
-    .sidebar div {
-      margin: 10px 0;
-      cursor: pointer;
-    }
-
-    /* Main content */
     .main {
       flex: 1;
       padding: 10px;
       background: #f5f5f5;
+      overflow-y: auto;
     }
 
-    /* Game row */
     .game {
       background: white;
       margin: 5px 0;
       padding: 10px;
       display: flex;
+      align-items: center;
       justify-content: space-between;
+    }
+
+    .game img { width: 32px; height: 32px; margin-right: 10px; }
+
+    .left {
+      display: flex;
       align-items: center;
     }
 
-    .buttons button {
-      margin-left: 5px;
+    .buttons button { margin-left: 5px; }
+
+    .modal {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.6);
+      display: none;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .modal-content {
+      background: white;
+      padding: 20px;
+      width: 300px;
     }
   </style>
 </head>
 <body>
 
-  <!-- Top bar -->
-  <div class="topbar">
-    Armadillo Store
-    <button>New installation</button>
-    <button>Remove installation</button>
-    <button>Reconfigure installation</button>
+<div class="topbar">
+  Armadillo Store
+  <button onclick="openModal()">New installation</button>
+</div>
+
+<div class="container">
+  <div class="sidebar">
+    <div>Home</div>
+    <div>========</div>
+    <div>Adobe Flash</div>
   </div>
 
-  <!-- Layout -->
-  <div class="container">
-
-    <!-- Sidebar -->
-    <div class="sidebar">
-      <div>Home</div>
-      <div>========</div>
-      <div>Adobe Flash</div>
-      <div>========</div>
-      <div>MPK (Tikm)</div>
-    </div>
-
-    <!-- Main -->
-    <div class="main">
-      <h2>My games</h2>
-
-      <div class="game">
-        <span>uygrwyu gfuweb</span>
-        <div class="buttons">
-          <button>Play</button>
-          <button>i</button>
-          <button>X</button>
-          <button>hide</button>
-        </div>
-      </div>
-
-      <div class="game">
-        <span>bbyugedy rfeu v wue</span>
-        <div class="buttons">
-          <button>Play</button>
-          <button>i</button>
-          <button>X</button>
-          <button>hide</button>
-        </div>
-      </div>
-
-    </div>
+  <div class="main">
+    <h2>My games</h2>
+    <div id="games"></div>
   </div>
+</div>
+
+<div class="modal" id="modal">
+  <div class="modal-content">
+    <h3>Add Game</h3>
+
+    Name:<br>
+    <input id="name"><br><br>
+
+    SWF URL:<br>
+    <input id="swfURL"><br><br>
+
+    OR Upload SWF:<br>
+    <input type="file" id="swfFile"><br><br>
+
+    Icon:<br>
+    <input type="file" id="iconFile"><br><br>
+
+    <button onclick="addGame()">Add</button>
+    <button onclick="closeModal()">Cancel</button>
+  </div>
+</div>
+
+<script>
+function openModal() {
+  document.getElementById("modal").style.display = "flex";
+}
+
+function closeModal() {
+  document.getElementById("modal").style.display = "none";
+}
+
+function fileToBase64(file) {
+  return new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.readAsDataURL(file);
+  });
+}
+
+async function addGame() {
+  const name = document.getElementById("name").value;
+  const swfFile = document.getElementById("swfFile").files[0];
+  const swfURL = document.getElementById("swfURL").value;
+  const iconFile = document.getElementById("iconFile").files[0];
+
+  if (!name || !iconFile || (!swfFile && !swfURL)) {
+    alert("Fill everything correctly");
+    return;
+  }
+
+  let swfType, swfData;
+
+  if (swfFile) {
+    swfType = "base64";
+    swfData = await fileToBase64(swfFile);
+  } else {
+    swfType = "url";
+    swfData = swfURL;
+  }
+
+  const icon = await fileToBase64(iconFile);
+
+  const games = JSON.parse(localStorage.getItem("flashGames") || "[]");
+
+  games.push({ name, swfType, swfData, icon });
+
+  localStorage.setItem("flashGames", JSON.stringify(games));
+
+  closeModal();
+  renderGames();
+}
+
+function playGame(index) {
+  const games = JSON.parse(localStorage.getItem("flashGames") || "[]");
+  const game = games[index];
+
+  const win = window.open("", "_blank");
+
+  win.document.write(`
+<!DOCTYPE html>
+<html>
+<head>
+  <title>${game.name}</title>
+  <link rel="icon" href="${game.icon}">
+  <script src="https://unpkg.com/@ruffle-rs/ruffle"></script>
+  <style>
+    body { margin:0; background:black; }
+    #player { width:100vw; height:100vh; }
+  </style>
+</head>
+<body>
+  <div id="player"></div>
+  <script>
+    window.RufflePlayer = window.RufflePlayer || {};
+    const ruffle = window.RufflePlayer.newest();
+    const player = ruffle.createPlayer();
+    document.getElementById("player").appendChild(player);
+    player.load("${game.swfData}");
+  <\/script>
+</body>
+</html>
+  `);
+}
+
+function deleteGame(index) {
+  const games = JSON.parse(localStorage.getItem("flashGames") || "[]");
+  games.splice(index, 1);
+  localStorage.setItem("flashGames", JSON.stringify(games));
+  renderGames();
+}
+
+function renderGames() {
+  const container = document.getElementById("games");
+  container.innerHTML = "";
+
+  const games = JSON.parse(localStorage.getItem("flashGames") || "[]");
+
+  games.forEach((game, i) => {
+    const div = document.createElement("div");
+    div.className = "game";
+
+    div.innerHTML = `
+      <div class="left">
+        <img src="${game.icon}">
+        ${game.name}
+      </div>
+      <div class="buttons">
+        <button onclick="playGame(${i})">Play</button>
+        <button onclick="deleteGame(${i})">X</button>
+      </div>
+    `;
+
+    container.appendChild(div);
+  });
+}
+
+renderGames();
+</script>
 
 </body>
 </html>
